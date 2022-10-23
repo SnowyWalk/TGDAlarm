@@ -148,7 +148,7 @@ steelohs
         e_url = 'https://tgd.kr/s/' + e
         tray_menu.append(MenuItem(e, make_func(e_url)))
     tray_menu.append(pystray.Menu.SEPARATOR)
-    tray_menu.append(MenuItem('디버그: 초기화', debug_init_recent))
+    #tray_menu.append(MenuItem('디버그: 초기화', debug_init_recent))
     tray_menu.append(MenuItem('종료', exit_app))
     
     tray_menu = tuple(tray_menu)
