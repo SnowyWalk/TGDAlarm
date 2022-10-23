@@ -99,7 +99,7 @@ def main_thread():
                             make_toast(article)
                             recent[e] = article
                             
-        for i in range(1, 10+1):
+        for i in range(1, 100+1):
             time.sleep(0.1)
 
 def exit_app():
