@@ -1,5 +1,12 @@
 # TGDAlarm
 트게더 알리미 (GUI 없음)
+
+<br/>
+<br/>
+
+# 다운로드 링크
+https://github.com/SnowyWalk/TGDAlarm/releases
+
 <br/>
 <br/>
 
