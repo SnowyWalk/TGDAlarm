@@ -9,6 +9,9 @@ from threading import Thread
 import time
 import webbrowser
 import os, sys
+import traceback
+import logging
+logging.basicConfig(level=logging.ERROR)
 
 # pyinstaller --onefile --windowed -i=icon.ico --add-data="icon.ico;." main.py
 
@@ -18,9 +21,15 @@ def get_url(channel_id, page):
     return posixpath.join('https://tgd.kr/s/', channel_id, 'page', str(page))
 
 def get_articles(channel_id, page=1):
-    soup = BeautifulSoup(requests.get(get_url(channel_id, page=page)).content, 'html.parser')
-    header = soup.select_one('head > title').get_text().strip()
-    thumbnail = soup.select_one('#board-info > img').attrs['src'].strip()
+    while True:
+        got = requests.get(get_url(channel_id, page=page))
+        if got.status_code != 200:
+            print(got.status_code)
+            continue
+        soup = BeautifulSoup(got.content, 'html.parser')
+        header = soup.select_one('head > title').get_text().strip()
+        thumbnail = soup.select_one('#board-info > img').attrs['src'].strip()
+        break
     return list(map(lambda x : dict(
             channel_id = channel_id,
             header = header,
@@ -52,8 +61,11 @@ def make_toast(article):
     #create notifier
     nManager = notifications.ToastNotificationManager
     notifier = nManager.create_toast_notifier(app)    
-    
-    urllib.request.urlretrieve(article['thumbnail'], f"{article['channel_id']}.png")
+
+    try:
+        urllib.request.urlretrieve(article['thumbnail'], f"{article['channel_id']}.png")
+    except:
+        pass
 
     #define your notification as string
     tString = f"""
@@ -84,21 +96,35 @@ def make_toast(article):
 
 
 def main_thread():
-    global is_running, recent
+    global is_running, recent, is_print_log
     recent = {}
 
     while True:
         if is_running:
-            for e in spectators:
-                articles = get_articles(e)
-                if e not in recent:
-                    recent[e] = articles[0]
-                else:
-                    for article in reversed(articles):
-                        if article['id'] > recent[e]['id']:
-                            make_toast(article)
-                            recent[e] = article
-                            
+            try:
+                for e in spectators:
+                    articles = get_articles(e)
+                    if is_print_log:
+                        with open('log.txt', 'a', encoding='utf8') as log:
+                            log.write(f'로그: {e} => 최신글: {articles[0]["id"]} {articles[0]["title"]} / 마지막 저장 상태: {recent[e]["id"]} {recent[e]["title"]} \n')
+                    if e not in recent:
+                        recent[e] = articles[0]
+                        with open('log.txt', 'a', encoding='utf8') as log:
+                            log.write(f'초기화: {e} => {articles[0]["id"]} {articles[0]["title"]} \n')
+                    else:
+                        for article in reversed(articles):
+                            if article['id'] > recent[e]['id']:
+                                with open('log.txt', 'a', encoding='utf8') as log:
+                                    log.write(f'토스트 생성: {e} => {article["id"]} {article["title"]} \n')
+                                make_toast(article)
+                                recent[e] = article
+                        if articles[0]['id'] != recent[e]['id']:
+                            with open('log.txt', 'a', encoding='utf8') as log:
+                                log.write(f'최근 글과 코드가 다름: {e} => {article["id"]} {article["title"]} \n')
+            except Exception as err:
+                with open('log.txt', 'a', encoding='utf8') as log:
+                    logging.error(traceback.format_exc())
+                    log.write(traceback.format_exc() + '\n')
         for i in range(1, 100+1):
             time.sleep(0.1)
 
@@ -117,7 +143,13 @@ def debug_init_recent():
     global recent
     recent['yo4ri']['id'] = '0'
 
+def debug_change_menu():
+    global is_print_log
+    is_print_log = not is_print_log
+    tray.update_menu()
+
 if __name__ == '__main__':
+    is_print_log = False
     is_running = True
     recent = {}
     
@@ -149,6 +181,7 @@ steelohs
         tray_menu.append(MenuItem(e, make_func(e_url)))
     tray_menu.append(pystray.Menu.SEPARATOR)
     #tray_menu.append(MenuItem('디버그: 초기화', debug_init_recent))
+    #tray_menu.append(MenuItem('디버그: 로그 찍기', debug_change_menu, checked=lambda x: is_print_log))
     tray_menu.append(MenuItem('종료', exit_app))
     
     tray_menu = tuple(tray_menu)
